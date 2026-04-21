@@ -107,14 +107,17 @@ font = pygame.font.SysFont("Hattori_Han_Sans", 36) # for displaying score and st
 score = 0
 combo = 0
 
+hit_messages = []
+
 pygame.mixer.init() # initialize mixer for audio
 pygame.mixer.music.load('audiomap1.mp3') # load music
 pygame.mixer.music.play() # play music
 
 # 4: gesture and accuracy functions
+message = "Miss"
 
 def process_gesture(lane, time_of_hit):
-    global score, combo
+    global score, combo, hit_messages
     # find the closest note in the lane that hasn't been hit yet
     closest_note = None
     min_time_diff = float('inf')
@@ -132,14 +135,38 @@ def process_gesture(lane, time_of_hit):
         if min_time_diff <= 80:
             score += 100 # perfect hit
             combo += 1
+            message = "Perfect"
         elif min_time_diff <= 120:
             score += 50 # good hit
             combo += 1
+            message = "Good"
         else:
             score += 40 # bad hit
             combo = 0 # reset combo on bad hit
+            message = "Bad"
     else:
         combo = 0 # reset combo on miss
+        message = "Miss"
+
+    # determine message
+    if closest_note and min_time_diff <= 200:
+        if min_time_diff <= 80:
+            message = "Perfect"
+        elif min_time_diff <= 120:
+            message = "Good"
+        else:
+            message = "Bad"
+    else:
+        message = "Miss"
+
+    # get position for message
+    lane_index = LANES.index(lane)
+    x = LANE_X_POSITIONS[lane_index]
+    y = hit_line_y - 60
+
+    hit_messages.append({'text': message, 'timer': 500, 'x': x, 'y': y})
+
+# store message
 
 def draw_notes(note, song_time):
     y = hit_line_y - (note['time'] - song_time) * scroll_speed
@@ -222,11 +249,25 @@ while running:
     
     # draw score 
     draw_score()
-    pygame.display.flip()
+
+    for msg in hit_messages[:]:
+        if msg['text'] == "Perfect":
+          color = (0, 255, 0)
+        elif msg['text'] == "Good":
+           color = (255, 255, 0)
+        else:
+            color = (255, 0, 0)
+
+        text_surface = font.render(msg['text'], True, color)
+        screen.blit(text_surface, (msg['x'] - text_surface.get_width() // 2, msg['y']))
+
+        msg['timer'] -= clock.get_time()
+        if msg['timer'] <= 0:
+            hit_messages.remove(msg)
     
-    # draw hit line
     pygame.draw.line(screen, (250, 250, 250), (100, hit_line_y), (700, hit_line_y), 9)
-    pygame.display.flip() # update the display
+
+    pygame.display.flip()
 
 
 pygame.quit() # clean up pygame
