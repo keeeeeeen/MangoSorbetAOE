@@ -1,4 +1,3 @@
-
 import pygame
 import sys
 import random
@@ -14,6 +13,9 @@ import serial.tools.list_ports
 
 def pytime_ms():
     return int(time.perf_counter() * 1000)
+
+pygame.mixer.init()
+pygame.mixer.music.load("Stateside.mp3")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 W, H = 1280, 720
@@ -163,10 +165,10 @@ def glow_circle(surface, color, cx, cy, r, width=3, layers=3):
 
 # ── Level Generator ────────────────────────────────────────────────────────────
 def generate_level(difficulty: int) -> list[dict]:
-    bpm      = 65 + difficulty * 5
+    bpm      = 123 + difficulty * 5
     beat_ms  = int(60000 / bpm)
     n_beats  = 15 + difficulty * 5
-    lead_in  = 3000
+    lead_in  = 2700
     beats    = []
     for i in range(n_beats):
         beats.append({
@@ -233,6 +235,9 @@ class WandSlicer:
 
     # ── Game State ─────────────────────────────────────────────────────────────
     def start_level(self):
+        self.level_start_ms = pytime_ms()
+        pygame.mixer.music.play()
+
         self._init_game_vars()
         self.beat_schedule  = generate_level(self.difficulty)
         self.level_start_ms = pytime_ms()
