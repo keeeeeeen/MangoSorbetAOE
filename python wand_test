@@ -1,0 +1,54 @@
+import serial
+import serial.tools.list_ports
+import time
+
+BAUD = 9600
+
+def find_port():
+    ports = serial.tools.list_ports.comports()
+    if not ports:
+        print("No serial ports found.")
+        return None
+    print("Available ports:")
+    for i, p in enumerate(ports):
+        print(f"  [{i}] {p.device} — {p.description}")
+    if len(ports) == 1:
+        print(f"Auto-selecting {ports[0].device}")
+        return ports[0].device
+    idx = input("Select port number: ").strip()
+    return ports[int(idx)].device
+
+def main():
+    port = find_port()
+    if not port:
+        return
+
+    print(f"\nConnecting to {port} at {BAUD} baud...")
+    try:
+        ser = serial.Serial(port, BAUD, timeout=2)
+    except Exception as e:
+        print(f"Failed to open port: {e}")
+        return
+
+    print("Connected. Waiting for gestures (Ctrl+C to quit)...\n")
+    print(f"{'#':<6} {'Time (ms)':<14} {'Raw received'}")
+    print("-" * 36)
+
+    count = 0
+    start = time.perf_counter()
+
+    try:
+        while True:
+            line = ser.readline().decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
+            elapsed = int((time.perf_counter() - start) * 1000)
+            count += 1
+            tag = " ✓" if line.upper() in ("LEFT", "RIGHT", "UP", "DOWN") else " ?"
+            print(f"{count:<6} {elapsed:<14} {line}{tag}")
+    except KeyboardInterrupt:
+        print(f"\nDone. {count} messages received.")
+        ser.close()
+
+if __name__ == "__main__":
+    main()
