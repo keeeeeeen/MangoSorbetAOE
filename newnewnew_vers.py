@@ -163,9 +163,9 @@ def glow_circle(surface, color, cx, cy, r, width=3, layers=3):
 
 # ── Level Generator ────────────────────────────────────────────────────────────
 def generate_level(difficulty: int) -> list[dict]:
-    bpm      = 80 + difficulty * 15
+    bpm      = 65 + difficulty * 5
     beat_ms  = int(60000 / bpm)
-    n_beats  = 20 + difficulty * 8
+    n_beats  = 15 + difficulty * 5
     lead_in  = 3000
     beats    = []
     for i in range(n_beats):
@@ -334,7 +334,7 @@ class WandSlicer:
         # Spawn beats 2s before their target time
         while self.next_beat_idx < len(self.beat_schedule):
             beat = self.beat_schedule[self.next_beat_idx]
-            if beat["target_ms"] - elapsed <= 2000:
+            if beat["target_ms"] - elapsed <= 3300:
                 self.spawn_target(beat)
                 self.next_beat_idx += 1
             else:
