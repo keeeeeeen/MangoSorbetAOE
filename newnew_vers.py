@@ -1,25 +1,3 @@
-"""
-WandSlicer - Keyboard Edition
-==============================
-A self-contained rhythm slicing game playable entirely with arrow keys.
-
-HOW TO PLAY:
-  - Targets appear with a direction arrow
-  - A ring shrinks inward — press the matching arrow key when it hits!
-  - Score is based on timing accuracy + combos
-
-CONTROLS:
-  Arrow Keys  — Slice in that direction
-  ENTER/SPACE — Start / Confirm
-  ← → (Menu)  — Change difficulty
-  P           — Pause
-  ESC         — Menu / Quit
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  IMU INTEGRATION: Search for "IMU_HOOK" in this file
-  to find the exact spots where Arduino serial data plugs in.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
 
 import pygame
 import sys
@@ -34,6 +12,8 @@ import threading
 import serial
 import serial.tools.list_ports
 
+def pytime_ms():
+    return int(time.perf_counter() * 1000)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 W, H = 1280, 720
@@ -72,18 +52,6 @@ POINTS = {
     "WRONG":   -50,
 }
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  IMU_HOOK A — INPUT SOURCE ABSTRACTION
-#  ───────────────────────────────────────
-#  Right now, get_pending_slices() reads from the keyboard event queue.
-#  To switch to Arduino IMU, replace this function's body with serial reads.
-#  The rest of the game never touches hardware directly — it only calls this.
-# ══════════════════════════════════════════════════════════════════════════════
-
-# This list is populated by the keyboard handler each frame.
-# When using IMU, your serial thread fills this list instead.
-
 class SerialReader(threading.Thread):
     def __init__(self, port: str, baud: int = 9600):
         super().__init__(daemon=True)
@@ -98,114 +66,26 @@ class SerialReader(threading.Thread):
         try:
             ser = serial.Serial(self.port, self.baud, timeout=1)
             self.connected = True
+
             while True:
                 line = ser.readline().decode("utf-8", errors="ignore").strip()
                 if not line:
                     continue
-                parts = line.split(",")
-                if len(parts) == 2:
-                    direction = parts[0].strip().upper()
-                    try:
-                        ms = int(parts[1].strip())
-                    except ValueError:
-                        ms = pygame.time.get_ticks()
-                    if direction in ("LEFT", "RIGHT", "UP", "DOWN"):
-                        with self._lock:
-                            self._events.append((direction, ms))
+
+                direction = line.strip().upper()
+
+                if direction in ("LEFT", "RIGHT", "UP", "DOWN"):
+                    with self._lock:
+                        self._events.append(direction)
+
         except Exception:
             self.connected = False
 
-    def get_pending_slices(self) -> list[tuple[str, int]]:
+    def get_pending_slices(self):
         with self._lock:
             evs = self._events[:]
             self._events.clear()
         return evs
-
-def _handle_keyboard_event(event: pygame.event.Event):
-    """
-    Translates a pygame KEYDOWN event into a slice input.
-
-    IMU REPLACEMENT: Delete this function entirely once serial is wired up.
-                     The keyboard fallback will no longer be needed.
-    """
-    KB_MAP = {
-        pygame.K_LEFT:  "LEFT",
-        pygame.K_RIGHT: "RIGHT",
-        pygame.K_UP:    "UP",
-        pygame.K_DOWN:  "DOWN",
-    }
-    if event.key in KB_MAP:
-        _pending_slices.append((KB_MAP[event.key], pygame.time.get_ticks()))
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  IMU_HOOK B — SERIAL THREAD (paste this in when ready for IMU)
-#  ──────────────────────────────────────────────────────────────
-#
-#  1. Add these imports at the top of the file:
-#       import threading
-#       import serial
-#       import serial.tools.list_ports
-#
-#  2. Replace the _pending_slices global and get_pending_slices() function
-#     with this class + helper:
-#
-#       class SerialReader(threading.Thread):
-#           def __init__(self, port: str, baud: int = 9600):
-#               super().__init__(daemon=True)
-#               self.port = port
-#               self.baud = baud
-#               self._events: list[tuple[str, int]] = []
-#               self._lock = threading.Lock()
-#               self.connected = False
-#
-#           def run(self):
-#               import serial
-#               try:
-#                   ser = serial.Serial(self.port, self.baud, timeout=1)
-#                   self.connected = True
-#                   while True:
-#                       line = ser.readline().decode("utf-8", errors="ignore").strip()
-#                       if not line:
-#                           continue
-#                       parts = line.split(",")
-#                       if len(parts) == 2:
-#                           direction = parts[0].strip().upper()
-#                           try:
-#                               ms = int(parts[1].strip())
-#                           except ValueError:
-#                               ms = pygame.time.get_ticks()
-#                           if direction in ("LEFT", "RIGHT", "UP", "DOWN"):
-#                               with self._lock:
-#                                   self._events.append((direction, ms))
-#               except Exception:
-#                   self.connected = False
-#
-#           def get_pending_slices(self) -> list[tuple[str, int]]:
-#               with self._lock:
-#                   evs = self._events[:]
-#                   self._events.clear()
-#               return evs
-#
-#  3. In WandSlicer.__init__(), add after pygame.init():
-#
-#       self._serial = None
-#       for p in serial.tools.list_ports.comports():
-#           try:
-#               self._serial = SerialReader(p.device)
-#               self._serial.start()
-#               break
-#           except Exception:
-#               pass
-#
-#  4. In WandSlicer.run(), replace:
-#       for direction, ts in get_pending_slices():
-#   with:
-#       imu_slices = self._serial.get_pending_slices() if self._serial else []
-#       for direction, ts in imu_slices:
-#
-# 
-# ══════════════════════════════════════════════════════════════════════════════
 
 # ── Game Data Classes ──────────────────────────────────────────────────────────
 class SliceState(Enum):
@@ -229,7 +109,7 @@ class SliceTarget:
     slice_anim:      float      = 0.0
 
     def time_to_target(self) -> float:
-        return self.target_time - pygame.time.get_ticks()
+        return self.target_time - pytime_ms()
 
 @dataclass
 class Particle:
@@ -315,9 +195,6 @@ class WandSlicer:
                                random.uniform(0.3, 1.5)) for _ in range(200)]
         self.scanline_surf = self._make_scanlines()
 
-        self._serial = SerialReader("/dev/cu.usbserial-XXXX")
-        self._serial = None
-        
         for p in serial.tools.list_ports.comports():
             try:
                 self._serial = SerialReader(p.device)
@@ -350,32 +227,32 @@ class WandSlicer:
     def start_level(self):
         self._init_game_vars()
         self.beat_schedule  = generate_level(self.difficulty)
-        self.level_start_ms = pygame.time.get_ticks()
+        self.level_start_ms = pytime_ms()
         self.state = "PLAYING"
 
     def elapsed_ms(self) -> int:
-        return pygame.time.get_ticks() - self.level_start_ms
+        return pytime_ms() - self.level_start_ms
 
     # ── Spawning ───────────────────────────────────────────────────────────────
     def spawn_target(self, beat: dict):
         margin   = 150
         x        = random.randint(margin, W - margin)
         y        = random.randint(120, H - 120)
-        now      = pygame.time.get_ticks()
+
+        now = pytime_ms()
         target_abs = self.level_start_ms + beat["target_ms"]
+
         self.targets.append(SliceTarget(
             direction=beat["direction"],
-            spawn_time=now, target_time=target_abs,
+            spawn_time=now,
+            target_time=target_abs,
             x=x, y=y,
         ))
 
     # ── Slice Scoring ──────────────────────────────────────────────────────────
-    def handle_slice(self, direction: str, timestamp_ms: int):
-        """
-        Core scoring logic. Called with (direction, ms) regardless of input source.
-        This function is input-source agnostic — keyboard and IMU both feed here.
-        """
-        now = pygame.time.get_ticks()
+    def handle_slice(self, direction: str):
+
+        pytime() == time.perf_counter()
 
         # Find the closest active target
         best:    Optional[SliceTarget] = None
@@ -443,8 +320,8 @@ class WandSlicer:
         if self.state != "PLAYING":
             return
 
-        now     = pygame.time.get_ticks()
-        elapsed = self.elapsed_ms()
+        now = pytime_ms()
+        elapsed = now - self.level_start_ms
 
         # Spawn beats 2s before their target time
         while self.next_beat_idx < len(self.beat_schedule):
@@ -562,7 +439,7 @@ class WandSlicer:
 
     def _draw_game(self):
         self._draw_hud()
-        now = pygame.time.get_ticks()
+        now = pytime_ms()
         for t in self.targets:
             self._draw_target(t, now)
         for p in self.particles:
@@ -695,20 +572,11 @@ class WandSlicer:
                         elif event.key == pygame.K_LEFT:
                             self.difficulty = max(1, self.difficulty - 1)
 
-                    # ── IMU_HOOK A (keyboard side) ──
-                    # Only pass slice keys through when actually playing.
-                    # When replacing with IMU, delete this elif block.
-                    elif self.state == "PLAYING":
-                        _handle_keyboard_event(event)
 
-            # ── IMU_HOOK A (consume inputs) ──
-            # This call is the ONLY place the game reads slice input.
-            # Swap get_pending_slices() for self._serial.get_pending_slices()
-            # and nothing else needs to change.
-            if self.state == "PLAYING":
-                imu_slices = self._serial.get_pending_slices() if self._serial else []
-                for direction, ts in imu_slices:
-                    self.handle_slice(direction, ts)
+            
+            if self.state == "PLAYING" and self._serial:
+                for direction in self._serial.get_pending_slices():
+                    self.handle_slice(direction)
 
             self.update(dt_s)
             self.draw()
