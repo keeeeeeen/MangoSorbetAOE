@@ -19,6 +19,8 @@ float maxX = -1000, minX = 1000;
 float maxY = -1000, minY = 1000;
 float maxZ = -1000, minZ = 1000;
 
+unsigned long startTime;
+
 void setup()
 {
   Serial.begin(115200);
@@ -35,6 +37,7 @@ void setup()
   }
 
   delay(1000);
+  startTime = millis();  // store startup time
 }
 
 void loop()
@@ -70,8 +73,6 @@ void loop()
       sumX = sumY = sumZ = 0;
       maxX = maxY = maxZ = -1000;
       minX = minY = minZ = 1000;
-
-      Serial.println("Recording gesture...");
     }
 
     sumX += ax;
@@ -97,38 +98,28 @@ void loop()
       float motionY = maxY - minY;
       float motionZ = maxZ - minZ;
 
-      Serial.println("Gesture detected:");
-
       /* Determine dominant motion axis */
+
+      unsigned long currentTime = millis();
+      unsigned long elapsedTime = currentTime - startTime;
+      Serial.print(elapstedTime);
       if(motionZ > motionX)
       {
         if(sumZ > 0)
-          Serial.println("WAND SWIPE UP");
+          Serial.println(",UP");
         else
-          Serial.println("WAND SWIPE DOWN");
+          Serial.println(",DOWN");
       }
       else
       {
         if(sumX > 0)
-          Serial.println("WAND SWIPE RIGHT");
+          Serial.println(",RIGHT");
         else
-          Serial.println("WAND SWIPE LEFT");
+          Serial.println(",LEFT");
       }
-
-
-      Serial.println("-----------------------");
-
       uint8_t sys, gyro, accel, mag;
       bno.getCalibration(&sys, &gyro, &accel, &mag);
 
-      Serial.print("Calibration: ");
-      Serial.print(sys);
-      Serial.print(" ");
-      Serial.print(gyro);
-      Serial.print(" ");
-      Serial.print(accel);
-      Serial.print(" ");
-      Serial.println(mag);
     }
   }
 
