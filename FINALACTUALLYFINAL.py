@@ -339,7 +339,7 @@ class WandSlicer:
         # Spawn beats 2s before their target time
         while self.next_beat_idx < len(self.beat_schedule):
             beat = self.beat_schedule[self.next_beat_idx]
-            if beat["target_ms"] - elapsed <= 1900:
+            if beat["target_ms"] - elapsed <= 1700:
                 self.spawn_target(beat)
                 self.next_beat_idx += 1
             else:
@@ -395,6 +395,7 @@ class WandSlicer:
         if self.lives <= 0 or self.level_done:
             self.lives = max(0, self.lives)
             self.state = "GAMEOVER"
+            pygame.mixer.music.stop()
 
     # ── Draw ───────────────────────────────────────────────────────────────────
     def draw(self):
